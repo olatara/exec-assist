@@ -1,0 +1,26 @@
+version: "3.9"
+services:
+  postgresdb:
+    container_name: container-exec-ai-pg
+    image: postgres
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env # Load environment variables from the .env file
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  pgadmin: #provides a I to manage and query the DB
+    container_name: container-exec-ai-pgadmin
+    image: dpage/pgadmin4
+    depends_on:
+      - postgresdb
+    ports:
+      - "6050:80"
+    env_file:
+      - .env # Load environment variables from the .env file
+    restart: unless-stopped
+
+volumes:
+  postgres-db:

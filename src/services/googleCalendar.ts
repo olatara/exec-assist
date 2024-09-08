@@ -1,15 +1,14 @@
-import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
-
+import { google } from "googleapis";
+import { OAuth2Client } from "google-auth-library";
 const oauth2Client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  'http://localhost:3000/auth/google/callback'
+  "http://localhost:3000/auth/google/callback"
 );
 
 export const createCalendarEvent = async (token: string, eventDetails: any) => {
   oauth2Client.setCredentials({ access_token: token });
-  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+  const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
   const event = {
     summary: eventDetails.summary,
@@ -19,7 +18,7 @@ export const createCalendarEvent = async (token: string, eventDetails: any) => {
   };
 
   const response = await calendar.events.insert({
-    calendarId: 'primary',
+    calendarId: "primary",
     requestBody: event,
   });
 
