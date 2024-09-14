@@ -12,8 +12,8 @@ export async function getAIResponse(prompt: string): Promise<string> {
       max_tokens: 150
     });
     return completion.choices[0].message.content || 'No response generated';
-  } catch (error) {
-    console.error('Error in AI service:', error);
-    throw new Error('Failed to get AI response');
+  } catch (error: any) {
+    console.error('Error in AI service:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.error?.message || 'Failed to get AI response');
   }
 }
