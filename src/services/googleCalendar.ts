@@ -31,15 +31,6 @@ export const createCalendarEvent = async (token: string, eventDetails: EventDeta
 };
 
 export const listUpcomingMeetings = async (token: string, range: number): Promise<calendar_v3.Schema$Event[]> => {
-  console.log('CAHHHHHHHHT Token:', token);
-
-
-  /**
-   * 
-   * 
-   * ya29.a0AcM612z5z9TDu42myhCjgh-CqqzSRYkWTZZyyvq2zWOqbPxMt6pc0BNSqSNyBtL66BzmrAb80uvYr5n5Ipe3rTGAQPtMPmzPdbOhlNu7Zk4dYS7xkfc7rZvj0m7H-okslOywXQSTI0_eOE_Uc63nVEjxKbhmeTWrRAaCgYKAbMSARISFQHGX2Mipy9kIptCyV47xgr_Ka5Rzw0169
-   */
-
   oauth2Client.setCredentials({ access_token: token });
   const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
