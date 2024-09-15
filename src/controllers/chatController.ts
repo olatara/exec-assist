@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { getAIResponse } from '../services/openai';
 import { listUpcomingMeetings, findFreeMeetingSlots, createCalendarEvent } from '../services/googleCalendar';
 import { User } from '../types';
+import chrono from 'chrono-node';
+import { formatDate } from '../utils/date';
 
 /**
  * Handles incoming chat requests based on the detected query type.
@@ -58,42 +60,55 @@ export const handleChatRequest = async (req: Request, res: Response) => {
 
 
 const bookEvent = async (req: Request, accessToken: string): Promise<string> => {
-  // Extract entities from the NLP response (e.g., attendees, date, time, purpose)
+  // Extract entities from the request object
   const { entities } = req;
-  const attendeesEntities = entities.filter((entity: any) => entity.entity === 'attendee');
-  const attendees = attendeesEntities.map((attendee: any) => attendee.sourceText); // Extract the attendees from the message
 
-  const dateEntity = entities.find((entity: any) => entity.entity === 'date')?.resolution?.date;
-  const timeEntity = entities.find((entity: any) => entity.entity === 'time')?.resolution?.start;
+  // Directly extract the attendees, date, time, and purpose from the entities object
+  const attendees = entities.attendees || []; // Attendees are already in an array
+  const dateEntity = entities.date || 'not specified'; // Date is in ISO format or a default string
+  const timeEntity = entities.time || 'not specified'; // Time in the format like "1pm"
+  const purposeEntity = entities.purpose || 'No specific agenda'; // Extract the purpose/agenda
 
-  const purposeEntity = entities.find((entity: any) => entity.entity === 'description')?.sourceText || 'No specific agenda';
+  // Use chrono-node to parse both the date and time
+  const parsedDate = chrono.parseDate(dateEntity); // e.g., "tomorrow" -> Date object
+  const parsedTime = chrono.parseDate(timeEntity); // e.g., "1pm" -> Date object
+
+  const formattedDate = parsedDate ? formatDate(parsedDate, 'yyyy-MM-dd') : 'not specified';
+  let hours = parsedTime ? parsedTime.getHours() : 10; // Default to 10 AM if no time
+  let minutes = parsedTime ? parsedTime.getMinutes() : 0; // Default to 0 minutes if no time
+
+
 
   // Generate the event summary and description using GPT, requesting JSON output
   const gptPrompt = `
     I want to schedule a meeting with the following details:
     - Attendees: ${attendees.length ? attendees.join(', ') : 'not specified'}
-    - Date: ${dateEntity || 'not specified'}
-    - Time: ${timeEntity || 'not specified'}
+    - Date: ${dateEntity}
+    - Time: ${timeEntity}
     - Purpose/Agenda: ${purposeEntity}
 
-      Please provide a summary and description in the following JSON format, wrapped between ' #+# ' delimiters (two hashtags separated by a plus sign):
-      #+#
-      {
-        "summary": "<summary of the meeting>",
-        "description": "<detailed description of the meeting>"
-      }
-      #+#
+    Please provide a summary and description in the following JSON format, wrapped between ' #+# ' delimiters (two hashtags separated by a plus sign):
+    #+#
+    {
+      "summary": "<summary of the meeting>",
+      "description": "<detailed description of the meeting>"
+    }
+    #+#
   `;
 
   // Call GPT to generate the summary and description
   const gptResponse = await getAIResponse(gptPrompt);
 
+  console.log('GPT Prompt:', gptPrompt);
   console.log('GPT Response:', gptResponse);
-  const jsonMatch = gptResponse.match(/#+#\s*({.*})\s*#+#/s); // Match the JSON content
+
+  // Safely extract the JSON from the GPT response
+  const jsonMatch = gptResponse.match(/#\+#\s*({.*})\s*#\+#/s); // Match the JSON content
+
   // Parse the response as JSON
   let summary = 'General Meeting';
   let description = 'No description provided';
-  
+
   if (jsonMatch && jsonMatch[1]) {
     try {
       const parsedResponse = JSON.parse(jsonMatch[1]);
@@ -106,18 +121,23 @@ const bookEvent = async (req: Request, accessToken: string): Promise<string> => 
     console.error('No JSON found in GPT response:', gptResponse);
   }
 
+  // Construct event details with the extracted information
   const eventDetails = {
     summary: summary,
     description: description,
-    start: dateEntity ? `${dateEntity}T${timeEntity || '10:00:00'}` : '2024-09-15T10:00:00',
-    end: dateEntity ? `${dateEntity}T${timeEntity || '11:00:00'}` : '2024-09-15T11:00:00',
+    start: `${formattedDate}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`,
+    end: `${formattedDate}T${(hours + 1).toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`,
     attendees: attendees.length ? attendees : ['default@example.com'], // Default attendee if none provided
   };
 
+  console.log('Event Details:', eventDetails);
+
   // Create the event in the calendar
   const createdEvent = await createCalendarEvent(accessToken!, eventDetails);
+  
   return `Meeting successfully scheduled, details: ${JSON.stringify(createdEvent)}`;
 };
+
 
 
 /**

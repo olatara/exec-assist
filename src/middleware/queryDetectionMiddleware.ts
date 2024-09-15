@@ -1,48 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-// @ts-ignore
-import { NlpManager } from 'node-nlp';
-
-const manager = new NlpManager({ languages: ['en'] });
-
-// Train the NLP model with intents and entities
-(async () => {
-  // Meeting-related intents
-  manager.addDocument('en', 'show my meetings', 'meeting_info');
-  manager.addDocument('en', 'what are my events', 'meeting_info');
-  manager.addDocument('en', 'do I have any events tomorrow', 'meeting_info');
-
-  // Free slot intents
-  manager.addDocument('en', 'when am I free', 'free_slots');
-  manager.addDocument('en', 'check my availability', 'free_slots');
-  manager.addDocument('en', 'what free time do I have', 'free_slots');
-
-  // Booking-related intents
-  manager.addDocument('en', 'book a meeting with %attendee%', 'book_event');
-  manager.addDocument('en', 'schedule a meeting with %attendee%', 'book_event');
-  manager.addDocument('en', 'set up a meeting to discuss %description% with %attendee%', 'book_event');
-  manager.addDocument('en', 'organize a %summary% with %attendee% tomorrow', 'book_event');
-
-  // Add entity extraction for dates, attendees, summary, and description
-  manager.addNamedEntityText('attendee', 'John Doe', ['en'], ['John Doe']);
-  manager.addNamedEntityText('attendee', 'Jane Doe', ['en'], ['Jane Doe']);
-  manager.addNamedEntityText('attendee', 'jane@example.com', ['en'], ['jane@example.com']);
-  manager.addNamedEntityText('attendee', 'john@example.com', ['en'], ['john@example.com']);
-  
-  manager.addNamedEntityText('date', 'tomorrow', ['en'], ['tomorrow']);
-  manager.addNamedEntityText('date', 'today', ['en'], ['today']);
-  
-  // Add custom summaries and descriptions
-  manager.addNamedEntityText('summary', 'team sync', ['en'], ['team sync']);
-  manager.addNamedEntityText('summary', 'project meeting', ['en'], ['project meeting']);
-  
-  manager.addNamedEntityText('description', 'discuss project updates', ['en'], ['discuss project updates']);
-  manager.addNamedEntityText('description', 'review the current sprint', ['en'], ['review the current sprint']);
-
-  await manager.train(); // Train the model with the documents and entities
-})();
+import { getAIResponse } from '../services/openai';
 
 /**
- * Middleware to detect the type of query and extract relevant entities using `nlp.js`.
+ * Middleware to detect query type and extract entities using GPT first, fallback to `node-nlp` if necessary.
+ * This version also parses natural language dates using chrono-node.
  */
 export const detectQueryTypeMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   const { message } = req.body;
@@ -51,12 +12,62 @@ export const detectQueryTypeMiddleware = async (req: Request, res: Response, nex
     return res.status(400).json({ error: 'Message is required and must be a string' });
   }
 
-  // Process the message using `nlp.js`
-  const response = await manager.process('en', message);
+  // First, attempt to detect query type and extract entities using GPT
+  try {
+    const gptPrompt = `
+      Analyze the following query and return the query type along with extracted entities (attendees, date, time, purpose).
+      The possible query types are:
+      - meeting_info (for checking upcoming meetings)
+      - book_event (for booking a new meeting)
+      - free_slots (for finding available time slots)
 
-  // Attach the detected intent and entities to the request object
-  req.queryType = response.intent; // Detected intent (e.g., 'meeting_info', 'free_slots', 'book_event')
-  req.entities = response.entities; // Extracted entities (e.g., 'date', 'time', etc.)
+      Query: "${message}"
+
+     Please ONLY return the result in the following JSON format, wrapped between (#+#) two hastags split by a plus sign:
+      #+#
+      {
+        "queryType": "<query_type>",
+        "entities": {
+          "attendees": ["<list_of_attendees emails>"],
+          "date": "<date>",
+          "time": "<time>",
+          "purpose": "<purpose>"
+          "description": "<description>"
+        }
+      }
+      #+#
+    `;
+
+    const gptResponse = await getAIResponse(gptPrompt);
+
+    // Safely extract the JSON between the `#+#` delimiters
+    const jsonMatch = gptResponse.match(/#\+#\s*({.*})\s*#\+#/s);
+
+    console.log('GPT Response:', gptResponse);
+    console.log('JSON Match:', jsonMatch);
+    if (!jsonMatch || !jsonMatch[1]) {
+      console.error('Failed to extract JSON from GPT response:', gptResponse);
+      return res.status(200).json({ message: `I'm sorry. i can not process your request` });
+    }
+
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(jsonMatch[1]);
+      console.log('Parsed GPT Response:', parsedResponse);
+    } catch (error) {
+      throw new Error('Failed to parse GPT response as JSON');
+    }
+
+    // Check if the GPT response contains a valid query type
+    const { queryType, entities } = parsedResponse;
+    if (['meeting_info', 'book_event', 'free_slots'].includes(queryType)) {
+      req.queryType = queryType;
+      req.entities = entities || {};
+      return next();
+    }
+  } catch (error) {
+    console.error('Error detecting query type or extracting entities with GPT:', error);
+  }
 
   next();
 };

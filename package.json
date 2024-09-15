@@ -26,6 +26,7 @@
     "@types/express-session": "^1.18.0",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/pg": "^8.11.8",
+    "chrono-node": "^1.4.9",
     "compromise": "^14.14.0",
     "date-fns": "^4.0.0-beta.1",
     "dotenv": "^16.4.5",

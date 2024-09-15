@@ -13,12 +13,19 @@ const oauth2Client = new OAuth2Client(
 export const createCalendarEvent = async (token: string, eventDetails: EventDetails) : Promise<calendar_v3.Schema$Event> => {
   oauth2Client.setCredentials({ access_token: token });
   const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+  const timeZone = 'UTC'; // make dynamic from request headers or user settings
 
   const event: calendar_v3.Schema$Event = {
     summary: eventDetails.summary,
     description: eventDetails.description,
-    start: { dateTime: eventDetails.start },
-    end: { dateTime: eventDetails.end },
+    start: { 
+      dateTime: eventDetails.start,
+      timeZone,
+    },
+    end: { 
+      dateTime: eventDetails.end,
+      timeZone,
+    },
     attendees: eventDetails.attendees?.map((email) => ({ email })),
   };
 
