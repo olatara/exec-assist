@@ -6,7 +6,13 @@ const router = express.Router();
 
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", { 
+    scope: [
+      "profile", 
+      "email", 
+      "https://www.googleapis.com/auth/calendar"
+    ] 
+  })
 );
 
 router.get(
@@ -25,7 +31,7 @@ router.get(
         refreshToken: googleTokens.refreshToken,
       };
       const token = jwt.sign(tokenUser, process.env.JWT_SECRET!, {
-        expiresIn: "1h",
+        expiresIn: "5h",
       });
 
       // Send the token and user data to the frontend
@@ -34,7 +40,7 @@ router.get(
         user,
       });
     } else {
-      res.status(401).json({ message: "Unauthorized" });
+      res.status(401).json({ message: "Unauthorized", reqUser: req.user });
     }
   }
 );

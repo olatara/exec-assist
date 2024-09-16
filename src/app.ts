@@ -5,8 +5,6 @@ import session from 'express-session';
 
 dotenv.config();
 
-console.log('Main application file is running');
-
 const app = express();
 const port = process.env.PORT || 3000;
 
