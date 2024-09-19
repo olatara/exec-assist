@@ -1,9 +1,8 @@
 // src/db/knex.ts
-import Knex from 'knex';
-const knexConfig = require('../knexfile');
-const environment = process.env.NODE_ENV || 'development';
+import Knex from "knex";
+const knexConfig = require("../knexfile");
+const environment = process.env.NODE_ENV || "development";
 const config = knexConfig[environment];
+const db = Knex(config);
 
-const knex = Knex(config);
-
-export default knex;
+export default db;
