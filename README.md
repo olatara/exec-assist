@@ -1,6 +1,6 @@
 # AI Executive Assistant
 
-This project is a micro SaaS **AI Executive Assistant** designed to automate common executive assistant tasks, including scheduling, communication, meeting preparation, and generating AI responses. It integrates with **Google OAuth**, **Google Calendar**, and **OpenAI's GPT-3.5** model for enhanced AI capabilities.
+This project is designed to automate common executive assistant tasks, including scheduling, communication, meeting preparation, and generating AI responses. It integrates with **Google OAuth**, **Google Calendar**, and **OpenAI's GPT-3.5** model for enhanced AI capabilities.
 
 ## Features
 - **User Authentication**: Google OAuth for secure user login.
@@ -38,8 +38,8 @@ Before running the project, ensure you have the following installed:
 
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/your-username/your-repo-name.git
-    cd your-repo-name
+    git clone https://github.com/your-username/exec-assist
+    cd exec-assist
     ```
 
 2. **Install dependencies**:
